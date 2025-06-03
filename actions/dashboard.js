@@ -1,8 +1,8 @@
 'use server';
-import { db } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/dist/types/server";
-import { revalidatePath } from "next/cache";
 
+import { db } from "@/lib/prisma";
+import { auth } from "@clerk/nextjs/server";
+import { revalidatePath } from "next/cache";
 
 const serializeTransaction = (obj) => {
   const serialized = { ...obj };
@@ -15,59 +15,111 @@ const serializeTransaction = (obj) => {
   return serialized;
 };
 
+export async function getUserAccounts() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
 
-export const CreateAccount = async (data) => {
-    const user = await auth();
-    try {
-        if (!user) {
-        throw new Error("User not authenticated");
-    }
-    const User = await db.user.findUnique({
-        where: {
-            clerkId: user.userId,
+  const user = await db.user.findUnique({
+    where: { clerkUserId: userId },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  try {
+    const accounts = await db.account.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: {
+          select: {
+            transactions: true,
+          },
         },
+      },
     });
 
-    const { name, type , balance , isDefault } = data;
-    const balanceFloat = parseFloat(balance);
-    if (isNaN(balanceFloat)) {
-        throw new Error("Invalid balance value");
+    // Serialize accounts before sending to client
+    const serializedAccounts = accounts.map(serializeTransaction);
+
+    return serializedAccounts;
+  } catch (error) {
+    console.error(error.message);
+  }
+}
+
+
+export const CreateAccount = async (prevState, formData) => {
+  const user = await auth();
+  if (!user || !user.userId) {
+    return { success: false, message: "User not authenticated" };
+  }
+
+  const errors = {};
+  const name = formData.get("name")?.trim();
+  const type = formData.get("type")?.trim();
+  const balance = formData.get("balance");
+  const isDefault = formData.get("isDefault") === "on";
+
+  // Validation
+  if (!name) errors.name = "Account name is required";
+  if (!type) errors.type = "Account type is required";
+  if (!balance) {
+    errors.balance = "Initial balance is required";
+  } else if (isNaN(parseFloat(balance))) {
+    errors.balance = "Initial balance must be a valid number";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { success: false, errors, message: "Validation failed" };
+  }
+
+  try {
+    const User = await db.user.findUnique({
+      where: {
+        clerkUserId: user.userId,
+      },
+    });
+
+    if (!User) {
+      return { success: false, message: "User not found in DB" };
     }
+
+    const balanceFloat = parseFloat(balance);
 
     const existingAccount = await db.account.findFirst({
-        where: {
-            userId : User.id,
-        }
+      where: { userId: User.id },
     });
 
-    const defaultAcc = existingAccount.length===0 ? true : isDefault; 
+    const defaultAcc = !existingAccount || isDefault;
 
-    if (defaultAcc){
-        await db.account.updateMany({
-            where: {
-                userId: User.id,
-                isDefault: true,
-            },
-            data: {
-                isDefault: false,
-            },
-        });
+    if (defaultAcc) {
+      await db.account.updateMany({
+        where: { userId: User.id, isDefault: true },
+        data: { isDefault: false },
+      });
     }
 
     const account = await db.account.create({
-        data: {
-            ...data,
-            balance: balanceFloat,
-            isDefault : defaultAcc,
-            userId: User.id        
-}})
+      data: {
+        name,
+        type,
+        balance: balanceFloat,
+        isDefault: defaultAcc,
+        userId: User.id,
+      },
+    });
 
-    const serializedAccount = serializeTransaction(account);
-    revalidatePath('/dashboard');
-    return {success:true, data: serializedAccount};
+    revalidatePath("/dashboard");
+    return { success: true, data: serializeTransaction(account) };
+  } catch (error) {
+    return {
+      success: false,
+      errors,
+      message: error.message || "Failed to create account",
+    };
+  }
+};
 
-    } catch (error) {
-        throw new Error(error.message || "Failed to create account");
-        
-    }
-}
+
