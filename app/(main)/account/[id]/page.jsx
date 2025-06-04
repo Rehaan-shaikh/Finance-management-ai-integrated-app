@@ -1,16 +1,18 @@
-import { getAccountWithTransaction } from '@/actions/account'
+import { getAccountWithTransaction } from '@/actions/account';
 import { notFound } from 'next/navigation';
-import React from 'react'
+import React, { Suspense } from 'react';
+import { BarLoader } from 'react-spinners';
+import TransactionTable from '../_components/transaction-table';
 
-const AccountPage =async ({params}) => {
-  const accountData = await getAccountWithTransaction(params.id);
+const AccountPage = async ({ params: { id } }) => {
+  const accountData = await getAccountWithTransaction(id);
 
   if (!accountData) {
     notFound();
   }
-  const {transacttions , ...account} = accountData; 
-  console.log(account);
-  
+
+  const { transactions = [], ...account } = accountData;
+
   return (
     <div className="space-y-8 px-5">
       <div className="flex gap-4 items-end justify-between">
@@ -19,8 +21,7 @@ const AccountPage =async ({params}) => {
             {account.name}
           </h1>
           <p className="text-muted-foreground">
-            {account.type.charAt(0) + account.type.slice(1).toLowerCase()}{" "}
-            Account
+            {account.type.charAt(0) + account.type.slice(1).toLowerCase()} Account
           </p>
         </div>
 
@@ -34,21 +35,19 @@ const AccountPage =async ({params}) => {
         </div>
       </div>
 
-      {/* Chart Section
-      <Suspense
+      {/* Chart Section */}
+      {/* <Suspense
         fallback={<BarLoader className="mt-4" width={"100%"} color="#9333ea" />}
       >
         <AccountChart transactions={transactions} />
-      </Suspense>
-
-      Transactions Table
-      <Suspense
-        fallback={<BarLoader className="mt-4" width={"100%"} color="#9333ea" />}
-      >
-        <TransactionTable transactions={transactions} />
       </Suspense> */}
-    </div>
-  )
-}
 
-export default AccountPage
+      {/* Transactions Table */}
+      <Suspense fallback={<BarLoader className="mt-4" width={"100%"} color="#9333ea" />}>
+        <TransactionTable transactions={transactions} />
+      </Suspense>
+    </div>
+  );
+};
+
+export default AccountPage;
