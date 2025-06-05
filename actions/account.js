@@ -95,6 +95,10 @@ export  const getAccountWithTransaction = async (accountId) => {
   }
 } 
 
+
+
+// https://chatgpt.com/share/68417a6a-ac44-8007-952e-b60bef923592
+// refer this link for more details on how to use this function
 export async function bulkDeleteTransactions(transactionIds) {
   try {
     const { userId } = await auth();
@@ -115,6 +119,7 @@ export async function bulkDeleteTransactions(transactionIds) {
     });
 
     // Group transactions by account to update balances
+    //although its not necessary to group by account, cause always current transactions are from the same account
     const accountBalanceChanges = transactions.reduce((acc, transaction) => {
       const change =
         transaction.type === "EXPENSE"
