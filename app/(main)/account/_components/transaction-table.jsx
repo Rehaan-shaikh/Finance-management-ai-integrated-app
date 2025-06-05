@@ -60,6 +60,8 @@ const RECURRING_INTERVALS = {
 };
 
 export default function TransactionTable({ transactions }) {
+  // console.log("Rendering TransactionTable with transactions:", transactions);
+  
   const [selectedIds, setSelectedIds] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     field: "date",
@@ -71,7 +73,8 @@ export default function TransactionTable({ transactions }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const filteredAndSortedTransactions = useMemo(() => {
+// useMemo caches filtered/sorted transactions, only recalculating when dependencies change
+const filteredAndSortedTransactions = useMemo(() => {
     let result = [...transactions];
 
     if (searchTerm) {
@@ -91,24 +94,43 @@ export default function TransactionTable({ transactions }) {
       );
     }
 
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortConfig.field) {
-        case "date":
-          comparison = new Date(a.date) - new Date(b.date);
-          break;
-        case "amount":
-          comparison = a.amount - b.amount;
-          break;
-        case "category":
-          comparison = a.category.localeCompare(b.category);
-          break;
-      }
-      return sortConfig.direction === "asc" ? comparison : -comparison;
-    });
+ // Sort transactions based on the current sort configuration
+result.sort((a, b) => {
+  // Initialize comparison result (0 means equal/no change in order)
+  let comparison = 0;
+  
+  // Determine which field to sort by
+  switch (sortConfig.field) {
+    case "date":
+      // Convert dates to timestamps and compare numerically
+      // Returns negative if a.date is earlier, positive if later
+      comparison = new Date(a.date) - new Date(b.date);
+      break;
+      
+    case "amount":
+      // Compare amounts directly (numbers)
+      // Returns negative if a.amount is smaller, positive if larger
+      comparison = a.amount - b.amount;
+      break;
+      
+    case "category":
+      // Compare category names alphabetically using string comparison
+      // Returns -1 if a.category comes first, 1 if it comes after
+      comparison = a.category.localeCompare(b.category);
+      break;
+      
+    // No default case needed as comparison remains 0 for unknown fields
+  }
+  
+  // Apply sort direction:
+  // - For 'asc' (ascending), return the comparison as-is
+  // - For 'desc' (descending), invert the comparison result
+  return sortConfig.direction === "asc" ? comparison : -comparison;
+});
 
     return result;
   }, [transactions, searchTerm, typeFilter, recurringFilter, sortConfig]);
+  // Without useMemo, filtering/sorting would run on every render unnecessarily
 
   const handleSort = (field) => {
     setSortConfig((current) => ({
@@ -123,6 +145,8 @@ export default function TransactionTable({ transactions }) {
       current.includes(id)
         ? current.filter((item) => item !== id)
         : [...current, id]
+        //  [...current, id] (Array Spread Syntax)
+        // Creates a new array with all existing IDs from current plus the new id at the end
     );
   };
 
@@ -131,6 +155,9 @@ export default function TransactionTable({ transactions }) {
       current.length === filteredAndSortedTransactions.length
         ? []
         : filteredAndSortedTransactions.map((t) => t.id)
+        // Takes the filteredAndSortedTransactions array
+        // Creates a new array containing only the id property of each transaction
+        // Returns an array of IDs
     );
   };
 
@@ -170,7 +197,7 @@ export default function TransactionTable({ transactions }) {
               setSearchTerm(e.target.value);
             }}
             className="pl-8"
-          />
+          /> 
         </div>
 
         <div className="flex gap-2 items-center">
@@ -373,6 +400,7 @@ export default function TransactionTable({ transactions }) {
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => handleBulkDelete([transaction.id])}
+                          // Wrap single ID in array to match bulk delete function signature
                         >
                           Delete
                         </DropdownMenuItem>
