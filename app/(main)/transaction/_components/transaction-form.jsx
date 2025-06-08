@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -21,7 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 
 import { cn } from "@/lib/utils";
 import { createTransaction } from "@/actions/transaction";
-import { useState } from "react";
+import { ReceiptScanner } from "./recipt-scanner";
 
 export function AddTransactionForm({ accounts, categories }) {
   const router = useRouter();
@@ -29,7 +30,12 @@ export function AddTransactionForm({ accounts, categories }) {
 
   const [state, formAction] = useActionState(createTransaction, initialState);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [date, setDate] = useState(new Date());
+  const [selectedType, setSelectedType] = useState("EXPENSE");
+
+  const amountRef = useRef(null);
+  const descriptionRef = useRef(null);
 
   const defaultAccountId = accounts.find((ac) => ac.isDefault)?.id || "";
 
@@ -38,14 +44,40 @@ export function AddTransactionForm({ accounts, categories }) {
     router.push(`/account/${state.data.accountId}`);
   };
 
-  if (state?.success) handleSuccess();
+  useEffect(() => {
+    if (state?.success) handleSuccess();
+    else if (state?.error) {
+      toast.error(state.error.message || "Failed to create transaction");
+    }
+  }, [state]);
+
+  const handleScan = (data) => {
+    if (!data || Object.keys(data).length === 0) {
+      toast.error("Could not extract data from the image.");
+      return;
+    }
+
+    if (amountRef.current) amountRef.current.value = data.amount;
+    if (descriptionRef.current) descriptionRef.current.value = data.description;
+
+    // Set matching category ID
+    const match = categories.find((cat) =>
+      cat.name.toLowerCase() === data.category.toLowerCase()
+    );
+    if (match) setSelectedCategory(match.id);
+
+    if (data.date) setDate(new Date(data.date));
+  };
 
   return (
     <form action={formAction} className="space-y-6">
+      {/* Receipt Scan */}
+      <ReceiptScanner onScanComplete={handleScan} />
+
       {/* Type */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Type</label>
-        <Select name="type" defaultValue="EXPENSE">
+        <Select name="type" value={selectedType} onValueChange={setSelectedType}>
           <SelectTrigger>
             <SelectValue placeholder="Select type" />
           </SelectTrigger>
@@ -60,7 +92,14 @@ export function AddTransactionForm({ accounts, categories }) {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium">Amount</label>
-          <Input type="number" step="0.01" name="amount" placeholder="0.00" required />
+          <Input
+            ref={amountRef}
+            type="number"
+            step="0.01"
+            name="amount"
+            placeholder="0.00"
+            required
+          />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Account</label>
@@ -82,7 +121,7 @@ export function AddTransactionForm({ accounts, categories }) {
       {/* Category */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Category</label>
-        <Select name="category">
+        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
           <SelectTrigger>
             <SelectValue placeholder="Select category" />
           </SelectTrigger>
@@ -94,9 +133,11 @@ export function AddTransactionForm({ accounts, categories }) {
             ))}
           </SelectContent>
         </Select>
+        {/* Hidden field for form submission */}
+        <input type="hidden" name="category" value={selectedCategory} />
       </div>
 
-      {/* Date */}
+      {/* Date Picker */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Date</label>
         <Popover>
@@ -118,28 +159,33 @@ export function AddTransactionForm({ accounts, categories }) {
               mode="single"
               selected={date}
               onSelect={setDate}
-              disabled={(date) =>
-                date > new Date() || date < new Date("1900-01-01")
+              disabled={(d) =>
+                d > new Date() || d < new Date("1900-01-01")
               }
               initialFocus
             />
           </PopoverContent>
         </Popover>
-        {/* Hidden input for selected date */}
         <input type="hidden" name="date" value={date.toISOString()} />
       </div>
 
       {/* Description */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Description</label>
-        <Input name="description" placeholder="Enter description" />
+        <Input
+          name="description"
+          ref={descriptionRef}
+          placeholder="Enter description"
+        />
       </div>
 
       {/* Recurring Toggle */}
       <div className="flex items-center justify-between border p-4 rounded-lg">
         <div className="space-y-0.5">
           <label className="text-base font-medium">Recurring Transaction</label>
-          <p className="text-sm text-muted-foreground">Set up a recurring schedule</p>
+          <p className="text-sm text-muted-foreground">
+            Set up a recurring schedule
+          </p>
         </div>
         <Switch
           checked={isRecurring}
@@ -168,7 +214,12 @@ export function AddTransactionForm({ accounts, categories }) {
 
       {/* Actions */}
       <div className="flex gap-4">
-        <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1"
+          onClick={() => router.back()}
+        >
           Cancel
         </Button>
         <Button type="submit" className="flex-1">
