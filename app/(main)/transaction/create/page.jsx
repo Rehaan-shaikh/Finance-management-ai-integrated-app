@@ -1,17 +1,17 @@
 import { getUserAccounts } from "@/actions/dashboard";
 import { defaultCategories } from "@/data/categories";
-// import { getTransaction } from "@/actions/transaction";
 import { AddTransactionForm } from "../_components/transaction-form";
+import { getTransaction } from "@/actions/transaction";
 
 export default async function AddTransactionPage({ searchParams }) {
   const accounts = await getUserAccounts();
-  // const editId = searchParams?.edit;
+  const editId = searchParams?.edit;
 
-  // let initialData = null;
-  // if (editId) {
-  //   const transaction = await getTransaction(editId);
-  //   initialData = transaction;
-  // }
+  let initialData = null;
+  if (editId) {
+    const transaction = await getTransaction(editId);
+    initialData = transaction;
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-5">
@@ -21,8 +21,8 @@ export default async function AddTransactionPage({ searchParams }) {
       <AddTransactionForm
         accounts={accounts}
         categories={defaultCategories}
-        // editMode={!!editId}
-        // initialData={initialData}
+        editMode={!!editId} // Convert editId to boolean: true if editId have value, false if it is undefined /null
+        initialData={initialData}
       />
     </div>
   );

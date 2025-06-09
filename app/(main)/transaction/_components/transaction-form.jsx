@@ -19,36 +19,57 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-
 import { cn } from "@/lib/utils";
-import { createTransaction } from "@/actions/transaction";
+
+import { createTransaction, updateTransaction } from "@/actions/transaction";
 import { ReceiptScanner } from "./recipt-scanner";
 
-export function AddTransactionForm({ accounts, categories }) {
+export function AddTransactionForm({ accounts, categories, editMode = false, initialData = null }) {
   const router = useRouter();
-  const initialState = { message: null };
+  const defaultAccountId = accounts.find((ac) => ac.isDefault)?.id || "";
 
-  const [state, formAction] = useActionState(createTransaction, initialState);
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [date, setDate] = useState(new Date());
-  const [selectedType, setSelectedType] = useState("EXPENSE");
+  const initialState = { message: null };
+  const actionFn = async (prevState, formData) => {
+    const payload = {
+      type: formData.get("type"),
+      amount: parseFloat(formData.get("amount")),
+      accountId: formData.get("accountId"),
+      category: formData.get("category"),
+      date: formData.get("date"),
+      description: formData.get("description"),
+      isRecurring: formData.get("isRecurring") === "true",
+      recurringInterval: formData.get("recurringInterval") || null,
+    };
+
+    try {
+      const result = editMode
+        ? await updateTransaction(formData.get("id"), payload)
+        : await createTransaction(undefined, formData);
+
+      if (result?.success) return result;
+      return { error: { message: "Operation failed" } };
+    } catch (error) {
+      return { error: { message: error.message } };
+    }
+  };
+
+  const [state, formAction] = useActionState(actionFn, initialState);
+  const [isRecurring, setIsRecurring] = useState(initialData?.isRecurring || false);
+  const [selectedCategory, setSelectedCategory] = useState(initialData?.category || "");
+  const [date, setDate] = useState(initialData?.date ? new Date(initialData.date) : new Date());
+  const [selectedType, setSelectedType] = useState(initialData?.type || "EXPENSE");
 
   const amountRef = useRef(null);
   const descriptionRef = useRef(null);
 
-  const defaultAccountId = accounts.find((ac) => ac.isDefault)?.id || "";
-
   const handleSuccess = () => {
-    toast.success("Transaction created successfully!");
+    toast.success(`Transaction ${editMode ? "updated" : "created"} successfully!`);
     router.push(`/account/${state.data.accountId}`);
   };
 
   useEffect(() => {
     if (state?.success) handleSuccess();
-    else if (state?.error) {
-      toast.error(state.error.message || "Failed to create transaction");
-    }
+    else if (state?.error) toast.error(state.error.message || "Failed");
   }, [state]);
 
   const handleScan = (data) => {
@@ -60,7 +81,6 @@ export function AddTransactionForm({ accounts, categories }) {
     if (amountRef.current) amountRef.current.value = data.amount;
     if (descriptionRef.current) descriptionRef.current.value = data.description;
 
-    // Set matching category ID
     const match = categories.find((cat) =>
       cat.name.toLowerCase() === data.category.toLowerCase()
     );
@@ -71,7 +91,8 @@ export function AddTransactionForm({ accounts, categories }) {
 
   return (
     <form action={formAction} className="space-y-6">
-      {/* Receipt Scan */}
+      {editMode && <input type="hidden" name="id" value={initialData.id} />}
+
       <ReceiptScanner onScanComplete={handleScan} />
 
       {/* Type */}
@@ -79,7 +100,7 @@ export function AddTransactionForm({ accounts, categories }) {
         <label className="text-sm font-medium">Type</label>
         <Select name="type" value={selectedType} onValueChange={setSelectedType}>
           <SelectTrigger>
-            <SelectValue placeholder="Select type" />
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="EXPENSE">Expense</SelectItem>
@@ -88,7 +109,7 @@ export function AddTransactionForm({ accounts, categories }) {
         </Select>
       </div>
 
-      {/* Amount and Account */}
+      {/* Amount & Account */}
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium">Amount</label>
@@ -99,11 +120,15 @@ export function AddTransactionForm({ accounts, categories }) {
             name="amount"
             placeholder="0.00"
             required
+            defaultValue={initialData?.amount}
           />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Account</label>
-          <Select name="accountId" defaultValue={defaultAccountId}>
+          <Select
+            name="accountId"
+            defaultValue={initialData?.accountId || defaultAccountId}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select account" />
             </SelectTrigger>
@@ -121,7 +146,10 @@ export function AddTransactionForm({ accounts, categories }) {
       {/* Category */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Category</label>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+        <Select
+          value={selectedCategory}
+          onValueChange={setSelectedCategory}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select category" />
           </SelectTrigger>
@@ -133,11 +161,10 @@ export function AddTransactionForm({ accounts, categories }) {
             ))}
           </SelectContent>
         </Select>
-        {/* Hidden field for form submission */}
         <input type="hidden" name="category" value={selectedCategory} />
       </div>
 
-      {/* Date Picker */}
+      {/* Date */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Date</label>
         <Popover>
@@ -159,9 +186,7 @@ export function AddTransactionForm({ accounts, categories }) {
               mode="single"
               selected={date}
               onSelect={setDate}
-              disabled={(d) =>
-                d > new Date() || d < new Date("1900-01-01")
-              }
+              disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
               initialFocus
             />
           </PopoverContent>
@@ -175,30 +200,33 @@ export function AddTransactionForm({ accounts, categories }) {
         <Input
           name="description"
           ref={descriptionRef}
+          defaultValue={initialData?.description}
           placeholder="Enter description"
         />
       </div>
 
-      {/* Recurring Toggle */}
+      {/* Recurring */}
       <div className="flex items-center justify-between border p-4 rounded-lg">
         <div className="space-y-0.5">
           <label className="text-base font-medium">Recurring Transaction</label>
-          <p className="text-sm text-muted-foreground">
-            Set up a recurring schedule
-          </p>
+          <p className="text-sm text-muted-foreground">Set up a recurring schedule</p>
         </div>
         <Switch
           checked={isRecurring}
           onCheckedChange={setIsRecurring}
         />
-        <input type="hidden" name="isRecurring" value={isRecurring ? "true" : ""} />
+        <input
+          type="hidden"
+          name="isRecurring"
+          value={isRecurring ? "true" : ""}
+        />
       </div>
 
       {/* Recurring Interval */}
       {isRecurring && (
         <div className="space-y-2">
           <label className="text-sm font-medium">Recurring Interval</label>
-          <Select name="recurringInterval">
+          <Select name="recurringInterval" defaultValue={initialData?.recurringInterval || ""}>
             <SelectTrigger>
               <SelectValue placeholder="Select interval" />
             </SelectTrigger>
@@ -214,22 +242,17 @@ export function AddTransactionForm({ accounts, categories }) {
 
       {/* Actions */}
       <div className="flex gap-4">
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1"
-          onClick={() => router.back()}
-        >
+        <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>
           Cancel
         </Button>
         <Button type="submit" className="flex-1">
           {state?.pending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating...
+              {editMode ? "Updating..." : "Creating..."}
             </>
           ) : (
-            "Create Transaction"
+            editMode ? "Update Transaction" : "Create Transaction"
           )}
         </Button>
       </div>

@@ -1,187 +1,140 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useActionState } from "react";
-import { useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { toast } from "sonner";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CreateAccount } from "@/actions/dashboard";
 
 import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+  DrawerClose,
+} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
-import { createTransaction } from "@/actions/transaction";
-import { useState } from "react";
+const AccountDrawer = ({ children }) => {
+  const [open, setOpen] = useState(false);
+  const [accountType, setAccountType] = useState("");
+  const [isDefault, setIsDefault] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-export function AddTransactionForm({ accounts, categories }) {
-  const router = useRouter();
-  const initialState = { message: null };
+const [formState, formAction] = useActionState(async (prevState, formData) => {
+  setLoading(true);
+  const result = await CreateAccount(prevState, formData);
+  setLoading(false);
 
-  const [state, formAction] = useActionState(createTransaction, initialState);
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [date, setDate] = useState(new Date());
+  if (result?.success) {
+    toast.success("Account created successfully!");
+    setOpen(false); // Close drawer on success
+  } else if (result?.errors) {
+    toast.error("Failed to create account. Please check the form.");
+  } else {
+    toast.error("Something went wrong. Try again.");
+  }
 
-  const defaultAccountId = accounts.find((ac) => ac.isDefault)?.id || "";
-
-  const handleSuccess = () => {
-    toast.success("Transaction created successfully!");
-    router.push(`/account/${state.data.accountId}`);
-  };
-
-  if (state?.success) handleSuccess();
+  return result;
+}, {});
 
   return (
-    <form action={formAction} className="space-y-6">
-      {/* Type */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Type</label>
-        <Select name="type" defaultValue="EXPENSE">
-          <SelectTrigger>
-            <SelectValue placeholder="Select type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="EXPENSE">Expense</SelectItem>
-            <SelectItem value="INCOME">Income</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Amount and Account */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Amount</label>
-          <Input type="number" step="0.01" name="amount" placeholder="0.00" required />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Account</label>
-          <Select name="accountId" defaultValue={defaultAccountId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select account" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((acc) => (
-                <SelectItem key={acc.id} value={acc.id}>
-                  {acc.name} (${parseFloat(acc.balance).toFixed(2)})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Category */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Category</label>
-        <Select name="category">
-          <SelectTrigger>
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Date */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Date</label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              className={cn(
-                "w-full pl-3 text-left font-normal",
-                !date && "text-muted-foreground"
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>{children}</DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Create New Account</DrawerTitle>
+        </DrawerHeader>
+        <div className="px-4 pb-4">
+          <form className="space-y-4" action={formAction}>
+            <div className="space-y-2">
+              <label htmlFor="name" className="text-sm font-medium">
+                Account Name
+              </label>
+              <Input name="name" placeholder="e.g., Main Checking" />
+              {formState?.errors?.name && (
+                <p className="text-sm text-red-500">{formState.errors.name}</p>
               )}
-            >
-              {date ? format(date, "PPP") : <span>Pick a date</span>}
-              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={setDate}
-              disabled={(date) =>
-                date > new Date() || date < new Date("1900-01-01")
-              }
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-        {/* Hidden input for selected date */}
-        <input type="hidden" name="date" value={date.toISOString()} />
-      </div>
+            </div>
 
-      {/* Description */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Description</label>
-        <Input name="description" placeholder="Enter description" />
-      </div>
+            <div className="space-y-2">
+              <label htmlFor="type" className="text-sm font-medium">
+                Account Type
+              </label>
+              <Select onValueChange={setAccountType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CURRENT">Current</SelectItem>
+                  <SelectItem value="SAVINGS">Savings</SelectItem>
+                </SelectContent>
+              </Select>
+              <input type="hidden" name="type" value={accountType} />
+              {formState?.errors?.type && (
+                <p className="text-sm text-red-500">{formState.errors.type}</p>
+              )}
+            </div>
 
-      {/* Recurring Toggle */}
-      <div className="flex items-center justify-between border p-4 rounded-lg">
-        <div className="space-y-0.5">
-          <label className="text-base font-medium">Recurring Transaction</label>
-          <p className="text-sm text-muted-foreground">Set up a recurring schedule</p>
+            <div className="space-y-2">
+              <label htmlFor="balance" className="text-sm font-medium">
+                Initial Balance
+              </label>
+              <Input name="balance" type="number" step="0.01" placeholder="0.00" />
+              {formState?.errors?.balance && (
+                <p className="text-sm text-red-500">{formState.errors.balance}</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border p-3 rounded-lg">
+              <div className="space-y-0.5">
+                <label htmlFor="isDefault" className="text-base font-medium">
+                  Set as Default
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  This account will be selected by default for transactions.
+                </p>
+              </div>
+              <Switch checked={isDefault} onCheckedChange={setIsDefault} />
+              <input
+                type="hidden"
+                name="isDefault"
+                value={isDefault ? "on" : "" }
+              />
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <DrawerClose asChild>
+                <Button type="button" variant="outline" className="flex-1" disabled={loading}>
+                  Cancel
+                </Button>
+              </DrawerClose>
+              <Button type="submit" className="flex-1" disabled={loading}>
+                {loading ? (
+  <span className="flex items-center justify-center gap-2">
+    <Loader2 className="animate-spin h-4 w-4" />
+    Creating...
+  </span>
+) : (
+  "Create Account"
+)}
+
+              </Button>
+            </div>
+          </form>
         </div>
-        <Switch
-          checked={isRecurring}
-          onCheckedChange={setIsRecurring}
-        />
-        <input type="hidden" name="isRecurring" value={isRecurring ? "true" : ""} />
-      </div>
-
-      {/* Recurring Interval */}
-      {isRecurring && (
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Recurring Interval</label>
-          <Select name="recurringInterval">
-            <SelectTrigger>
-              <SelectValue placeholder="Select interval" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="DAILY">Daily</SelectItem>
-              <SelectItem value="WEEKLY">Weekly</SelectItem>
-              <SelectItem value="MONTHLY">Monthly</SelectItem>
-              <SelectItem value="YEARLY">Yearly</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-4">
-        <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>
-          Cancel
-        </Button>
-        <Button type="submit" className="flex-1">
-          {state?.pending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating...
-            </>
-          ) : (
-            "Create Transaction"
-          )}
-        </Button>
-      </div>
-    </form>
+      </DrawerContent>
+    </Drawer>
   );
-}
+};
+
+export default AccountDrawer;
