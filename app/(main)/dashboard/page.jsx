@@ -1,4 +1,4 @@
-import { getUserAccounts } from '@/actions/dashboard'
+import { getDashboardData, getUserAccounts } from '@/actions/dashboard'
 import AccountDrawer from '@/components/account-drawer'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Plus } from 'lucide-react'
@@ -6,6 +6,7 @@ import React from 'react'
 import { AccountCard } from './_components/accountCard'
 import { getCurrentBudget } from '@/actions/budget'
 import { BudgetProgress } from './_components/budget-progress'
+import { DashboardOverview } from './_components/transaction-overview'
 
 const DasshboardPage =async () => {
 
@@ -18,6 +19,7 @@ const DasshboardPage =async () => {
    budgetData = await getCurrentBudget(defaultAccount?.id);
   }
 
+  const transactions = await getDashboardData();
   return (
     <div className='px-5 space-y-8'>
 
@@ -27,6 +29,12 @@ const DasshboardPage =async () => {
         currentExpenses={budgetData?.currentExpenses || 0}
       />
 
+
+      {/* Dashboard Overview */}
+      <DashboardOverview
+        accounts={accounts}
+        transactions={transactions || []}
+      />
 
       {/* Accounts Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

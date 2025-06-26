@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useActionState } from "react";
-import { CreateAccount } from "@/actions/dashboard";
-
+import { useState, useEffect, useActionState } from "react";
+import { useFormState } from "react-dom";
+import { CreateAccount } from "@/actions/dashboard"; // server action
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -22,30 +22,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+
+// ...import UI components (Drawer, Input, etc.)
 
 const AccountDrawer = ({ children }) => {
   const [open, setOpen] = useState(false);
   const [accountType, setAccountType] = useState("");
   const [isDefault, setIsDefault] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-const [formState, formAction] = useActionState(async (prevState, formData) => {
-  setLoading(true);
-  const result = await CreateAccount(prevState, formData);
-  setLoading(false);
+  const initialState = { success: null, errors: {} };
+const [formState, formAction, isPending] = useActionState(CreateAccount, initialState);
 
-  if (result?.success) {
+  // Toasts based on form submission
+useEffect(() => {
+  if (formState?.success) {
     toast.success("Account created successfully!");
-    setOpen(false); // Close drawer on success
-  } else if (result?.errors) {
-    toast.error("Failed to create account. Please check the form.");
-  } else {
-    toast.error("Something went wrong. Try again.");
-  }
+    setOpen(false);
 
-  return result;
-}, {});
+    // ✅ Reset form state
+    setAccountType("");
+    setIsDefault(false);
+    formState.errors = {}; // Soft reset to avoid ghost toasts
+  } else if (formState?.errors && Object.keys(formState.errors).length > 0) {
+    toast.error(" Errors in form.");
+  }
+}, [formState]);
+
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>
@@ -54,41 +56,37 @@ const [formState, formAction] = useActionState(async (prevState, formData) => {
         <DrawerHeader>
           <DrawerTitle>Create New Account</DrawerTitle>
         </DrawerHeader>
+
         <div className="px-4 pb-4">
-          <form className="space-y-4" action={formAction}>
-            <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
-                Account Name
-              </label>
+          <form action={formAction} className="space-y-4">
+            <div>
+              <label htmlFor="name" className="text-sm font-medium">Account Name</label>
               <Input name="name" placeholder="e.g., Main Checking" />
               {formState?.errors?.name && (
                 <p className="text-sm text-red-500">{formState.errors.name}</p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="type" className="text-sm font-medium">
-                Account Type
-              </label>
-              <Select onValueChange={setAccountType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
+            <div>
+              <label htmlFor="type" className="text-sm font-medium">Account Type</label>
+              <Select onValueChange={(selectedValue) => setAccountType(selectedValue)}>
+                {/* Shorthand : <Select onValueChange={setAccountType} /> */}
+                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CURRENT">Current</SelectItem>
+                  {/* //AccountType is enum */}
+                  <SelectItem value="CURRENT">Current</SelectItem>  
                   <SelectItem value="SAVINGS">Savings</SelectItem>
                 </SelectContent>
               </Select>
-              <input type="hidden" name="type" value={accountType} />
+              {/* we are passing this followig data in form data with namme type which holds selected value */}
+              <input type="hidden" name="type" value={accountType} /> 
               {formState?.errors?.type && (
                 <p className="text-sm text-red-500">{formState.errors.type}</p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="balance" className="text-sm font-medium">
-                Initial Balance
-              </label>
+            <div>
+              <label htmlFor="balance" className="text-sm font-medium">Initial Balance</label>
               <Input name="balance" type="number" step="0.01" placeholder="0.00" />
               {formState?.errors?.balance && (
                 <p className="text-sm text-red-500">{formState.errors.balance}</p>
@@ -96,39 +94,27 @@ const [formState, formAction] = useActionState(async (prevState, formData) => {
             </div>
 
             <div className="flex items-center justify-between border p-3 rounded-lg">
-              <div className="space-y-0.5">
-                <label htmlFor="isDefault" className="text-base font-medium">
-                  Set as Default
-                </label>
+              <div>
+                <label htmlFor="isDefault" className="text-base font-medium">Set as Default</label>
                 <p className="text-sm text-muted-foreground">
                   This account will be selected by default for transactions.
                 </p>
               </div>
-              <Switch checked={isDefault} onCheckedChange={setIsDefault} />
-              <input
-                type="hidden"
-                name="isDefault"
-                value={isDefault ? "on" : "" }
-              />
+              <Switch checked={isDefault} onCheckedChange={(checkedValue) => {setIsDefault(checkedValue)}} />
+                {/* checkedValue is a boolean (true or false). It tells you whether the Switch is ON (true) or OFF (false). */}
+              <input type="hidden" name="isDefault" value={isDefault ? "on" : ""} />
             </div>
 
             <div className="flex gap-4 pt-4">
               <DrawerClose asChild>
-                <Button type="button" variant="outline" className="flex-1" disabled={loading}>
+                <Button type="button" variant="outline" className="flex-1">
                   Cancel
                 </Button>
               </DrawerClose>
-              <Button type="submit" className="flex-1" disabled={loading}>
-                {loading ? (
-  <span className="flex items-center justify-center gap-2">
-    <Loader2 className="animate-spin h-4 w-4" />
-    Creating...
-  </span>
-) : (
-  "Create Account"
-)}
+             <Button type="submit" className="flex-1" disabled={isPending}>
+               {isPending ? "Creating..." : "Create Account"}
+             </Button>
 
-              </Button>
             </div>
           </form>
         </div>

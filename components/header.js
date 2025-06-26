@@ -7,7 +7,9 @@ import Image from "next/image";
 import { checkUser } from "@/lib/checkUser";
 
 const Header = async () => {
-  await checkUser();
+  await checkUser();  
+  //the checkUser will trigger on first render of the header component or on every render.
+
 
   return (
     <header className="fixed top-0 w-full bg-white/80 backdrop-blur-md z-50 border-b">
@@ -27,6 +29,7 @@ const Header = async () => {
           <SignedOut>
           {/* if user is signed out, show these */}
             <a href="#features" className="text-gray-600 hover:text-blue-600">
+              {/* href="#features" This is called an in-page anchor link. It lets the browser scroll directly to a specific section with features id within the same page. */}
               Features
             </a>
             <a

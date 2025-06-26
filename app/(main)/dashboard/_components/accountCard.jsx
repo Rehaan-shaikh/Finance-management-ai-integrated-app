@@ -44,7 +44,7 @@ const handleDefaultChange = async (event) => {
             {name}
           </CardTitle>
           <Switch
-            checked={isDefault}
+            checked={isDefault} //if isDefault is true, switch will be checked
             onClick={handleDefaultChange}
             // disabled={updateDefaultLoading}
           />

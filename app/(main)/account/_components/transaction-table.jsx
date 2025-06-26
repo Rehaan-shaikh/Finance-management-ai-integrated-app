@@ -73,8 +73,8 @@ export default function TransactionTable({ transactions }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-// useMemo caches filtered/sorted transactions, only recalculating when dependencies change
-const filteredAndSortedTransactions = useMemo(() => {
+  // useMemo hook caches computed value (filtered/sorted transactions), only recalculating when dependencies change
+  const filteredAndSortedTransactions = useMemo(() => {
     let result = [...transactions];
 
     if (searchTerm) {
@@ -88,13 +88,14 @@ const filteredAndSortedTransactions = useMemo(() => {
       result = result.filter((t) => t.type === typeFilter);
     }
 
-    if (recurringFilter) {
+    if (recurringFilter) {  
       result = result.filter((t) =>
         recurringFilter === "recurring" ? t.isRecurring : !t.isRecurring
       );
     }
 
  // Sort transactions based on the current sort configuration
+  // a and b as temporary placeholders for two items (objects) from the array being compared during the sort process
 result.sort((a, b) => {
   // Initialize comparison result (0 means equal/no change in order)
   let comparison = 0;
@@ -120,12 +121,12 @@ result.sort((a, b) => {
       break;
       
     // No default case needed as comparison remains 0 for unknown fields
-  }
+  } // 1* it provides transactions in asc order based on the selected field 
   
   // Apply sort direction:
   // - For 'asc' (ascending), return the comparison as-is
   // - For 'desc' (descending), invert the comparison result
-  return sortConfig.direction === "asc" ? comparison : -comparison;
+  return sortConfig.direction === "asc" ? comparison : -comparison;  //2* this flips the order of the comparison result
 });
 
     return result;
@@ -161,6 +162,9 @@ result.sort((a, b) => {
     );
   };
 
+// This means:
+// If ids is provided as parameter, it will use that array.
+// If not, it will use the selectedIds array (ie. ids = selectedIds) as default arg.
   const handleBulkDelete = async (ids = selectedIds) => {
     if (
       !window.confirm(`Are you sure you want to delete ${ids.length} transactions?`)
@@ -400,8 +404,10 @@ result.sort((a, b) => {
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => handleBulkDelete([transaction.id])}
-                          // Wrap single ID in array to match bulk delete function signature
-                        >
+// You are manually wrapping transaction.id in an array.
+// Why? Because handleBulkDelete expects an array of IDs.
+// This allows you to reuse the same bulk delete logic even when deleting just one item.
+                          >
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>

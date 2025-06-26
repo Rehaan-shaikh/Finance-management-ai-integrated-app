@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
         </main>
         <Toaster richColor />
         <footer className="bg-gray-800 text-white p-4 text-center">
-          <p>&copy; {new Date().getFullYear()} Welth. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()}  Welth — Empowering your financial journey.</p>
         </footer>
       </body>
     </html>

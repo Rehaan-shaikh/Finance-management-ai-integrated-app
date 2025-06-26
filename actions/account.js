@@ -88,6 +88,7 @@ export  const getAccountWithTransaction = async (accountId) => {
   return {
     ...serializeDecimal(account),
     transactions: account.transactions.map(serializeDecimal),
+    //serializing each transaction by map
   };
     
   } catch (error) {
@@ -99,6 +100,76 @@ export  const getAccountWithTransaction = async (accountId) => {
 
 // https://chatgpt.com/share/68417a6a-ac44-8007-952e-b60bef923592
 // refer this link for more details on how to use this function
+// use this function to delete multiple transactions from multiple accounts
+// export async function bulkDeleteTransactions(transactionIds) {
+  
+//   try {
+//     const { userId } = await auth();
+//     if (!userId) throw new Error("Unauthorized");
+
+//     const user = await db.user.findUnique({
+//       where: { clerkUserId: userId },
+//     });
+
+//     if (!user) throw new Error("User not found");
+
+//     // Get transactions to calculate balance changes
+//     const transactions = await db.transaction.findMany({
+//       where: {
+//         id: { in: transactionIds },
+//         // “Find all transactions where the id is one of the values in the transactionIds array.”
+//         userId: user.id,
+//       },
+//     });
+//   console.log(transactions);
+
+
+//     // Group transactions by account to update balances
+//     //although its not necessary to group by account, cause always current transactions are from the same account
+//     const accountBalanceChanges = transactions.reduce((acc, transaction) => {
+//       const change =  
+//         transaction.type === "EXPENSE"
+//           ? transaction.amount
+//           : -transaction.amount;
+//       acc[transaction.accountId] = (acc[transaction.accountId] || 0) + change;  //grouping balance change for multiple accounts 
+//       return acc;
+//     }, {});
+
+//     // Delete transactions and update account balances in a transaction
+//     await db.$transaction(async (tx) => {
+//       // Delete transactions
+//       await tx.transaction.deleteMany({
+//         where: {
+//           id: { in: transactionIds },
+//           userId: user.id,
+//         },
+//       });
+
+//       // Update account balances
+//       for (const [accountId, balanceChange] of Object.entries(
+//         accountBalanceChanges
+//       )) {
+//         await tx.account.update({
+//           where: { id: accountId },
+//           data: {
+//             balance: {
+//               increment: balanceChange,
+//             },
+//           },
+//         });
+//       }
+//     });
+
+//     revalidatePath("/dashboard");
+//     revalidatePath("/account/[id]");
+
+//     return { success: true };
+//   } catch (error) {
+//     return { success: false, error: error.message };
+//   }
+// }
+
+//use this function to delete multiple transactions from same accounts
 export async function bulkDeleteTransactions(transactionIds) {
   try {
     const { userId } = await auth();
@@ -110,7 +181,7 @@ export async function bulkDeleteTransactions(transactionIds) {
 
     if (!user) throw new Error("User not found");
 
-    // Get transactions to calculate balance changes
+    // Fetch all transactions to calculate balance change and account ID
     const transactions = await db.transaction.findMany({
       where: {
         id: { in: transactionIds },
@@ -118,20 +189,24 @@ export async function bulkDeleteTransactions(transactionIds) {
       },
     });
 
-    // Group transactions by account to update balances
-    //although its not necessary to group by account, cause always current transactions are from the same account
-    const accountBalanceChanges = transactions.reduce((acc, transaction) => {
-      const change =
-        transaction.type === "EXPENSE"
-          ? transaction.amount
-          : -transaction.amount;
-      acc[transaction.accountId] = (acc[transaction.accountId] || 0) + change;
-      return acc;
-    }, {});
+    if (transactions.length === 0) throw new Error("No transactions found");
 
-    // Delete transactions and update account balances in a transaction
+    // Get accountId (assuming all transactions are from same account)
+    const accountId = transactions[0].accountId;
+
+    // Calculate balance change without reduce
+    let balanceChange = 0;
+    for (const transaction of transactions) {
+      if (transaction.type === "EXPENSE") {
+        balanceChange += transaction.amount;
+      } else {
+        balanceChange -= transaction.amount;
+      }
+    }
+
+    // Perform DB transaction
     await db.$transaction(async (tx) => {
-      // Delete transactions
+      // Delete all selected transactions
       await tx.transaction.deleteMany({
         where: {
           id: { in: transactionIds },
@@ -139,19 +214,15 @@ export async function bulkDeleteTransactions(transactionIds) {
         },
       });
 
-      // Update account balances
-      for (const [accountId, balanceChange] of Object.entries(
-        accountBalanceChanges
-      )) {
-        await tx.account.update({
-          where: { id: accountId },
-          data: {
-            balance: {
-              increment: balanceChange,
-            },
+      // Update account balance
+      await tx.account.update({
+        where: { id: accountId },
+        data: {
+          balance: {
+            increment: balanceChange,
           },
-        });
-      }
+        },
+      });
     });
 
     revalidatePath("/dashboard");

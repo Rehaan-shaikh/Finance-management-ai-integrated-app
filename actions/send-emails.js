@@ -1,3 +1,4 @@
+// Docs at: https://resend.com/docs/send-with-nextjs
 "use server";
 
 import { Resend } from "resend";
@@ -7,7 +8,7 @@ export async function sendEmail({ to, subject, react }) {
 
   try {
     const data = await resend.emails.send({
-      from: "Finance App <onboarding@resend.dev>",  //this has to be this perticular email
+      from: "Finance App <onboarding@resend.dev>",  //this has to be this perticular email to use Resend for free tier
       to,
       subject,
       react,

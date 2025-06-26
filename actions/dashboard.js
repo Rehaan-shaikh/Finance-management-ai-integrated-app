@@ -39,6 +39,7 @@ export async function getUserAccounts() {
         },
       },
     });
+    // console.log(accounts, "accounts in action");
 
     // Serialize accounts before sending to client
     const serializedAccounts = accounts.map(serializeTransaction);
@@ -85,6 +86,8 @@ export const CreateAccount = async (prevState, formData) => {
     if (!User) {
       return { success: false, message: "User not found in DB" };
     }
+  console.log(formData , "formData in action" ,user );
+
 
     const balanceFloat = parseFloat(balance);
 
@@ -123,3 +126,23 @@ export const CreateAccount = async (prevState, formData) => {
 };
 
 
+export async function getDashboardData() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  const user = await db.user.findUnique({
+    where: { clerkUserId: userId },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // Get all user transactions
+  const transactions = await db.transaction.findMany({
+    where: { userId: user.id },
+    orderBy: { date: "desc" },
+  });
+
+  return transactions.map(serializeTransaction);
+}

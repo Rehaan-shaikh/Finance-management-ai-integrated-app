@@ -19,7 +19,7 @@ export async function getCurrentBudget(accountId) {
 
     const budget = await db.budget.findFirst({
       where: {
-        userId: user.id,
+        userId: user.id,  //cause there can only be one budget per user for therir default account
       },
     });
 
@@ -36,8 +36,9 @@ export async function getCurrentBudget(accountId) {
       0
     );
 
+// .aggregate() is used when you want to perform mathematical operations on your data, such as:
+// sum ➝ add up values (like total expenses) ,avg ➝ average, min / max ➝ smallest or largest value, count ➝ number of matching records
 const expenses = await db.transaction.aggregate({
-  // Filter conditions for which transactions to include in the aggregation
   where: {
     userId: user.id, // Only transactions that belong to the currently logged-in user
     type: "EXPENSE", // Only include expense transactions (not income)
@@ -45,7 +46,7 @@ const expenses = await db.transaction.aggregate({
       gte: startOfMonth, // Date should be greater than or equal to start of the month
       lte: endOfMonth,   // Date should be less than or equal to end of the month
     },
-    accountId, // Only include transactions for the specified accountId (passed as function argument)
+    accountId, // Only include transactions for the specified accountId which is default account (passed as function argument from dashboard page)
   },
 
   // Aggregation logic
@@ -81,7 +82,7 @@ export async function updateBudget(amount) {
     if (!user) throw new Error("User not found");
 
     // Update or create budget
-    // ipsert updates a record if it exists, or creates it if it doesn't — all in one query.
+    // upsert updates a record if it exists, or creates it if it doesn't — all in one query.
     const budget = await db.budget.upsert({
       where: {
         userId: user.id,

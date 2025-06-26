@@ -30,22 +30,22 @@ const DATE_RANGES = {
 };
 
 export function AccountChart({ transactions }) {
-  const [dateRange, setDateRange] = useState("1M");
+  const [dateRange, setDateRange] = useState("1M");  //it basically holds the key of the DATE_RANGES object
 
   //https://chatgpt.com/share/6841b661-e134-8007-9103-011a2b15aca1
   const filteredData = useMemo(() => {
     const range = DATE_RANGES[dateRange];
     const now = new Date();
-    const startDate = range.days
-      ? startOfDay(subDays(now, range.days))
-      : startOfDay(new Date(0));
-
+    const startDate = range.days //ie if range is not null(meaning not ALL)
+      ? startOfDay(subDays(now, range.days)) // getting start date of range by subtracting it with days from now
+      : startOfDay(new Date(0)); //this new Date(0) ]] creates a JavaScript Date object set to: January 1, 1970, at 00:00:00.000 UTC
+ 
     // Filter transactions within date range
     const filtered = transactions.filter(
       (t) => new Date(t.date) >= startDate && new Date(t.date) <= endOfDay(now)
     );
 
-    // Group transactions by date
+    // Grouping transactions by date in an object
     const grouped = filtered.reduce((acc, transaction) => {
       const date = format(new Date(transaction.date), "MMM dd");
       if (!acc[date]) {
@@ -59,13 +59,16 @@ export function AccountChart({ transactions }) {
       return acc;
     }, {});
 
-    // Convert to array and sort by date
+    // Object.values Convert grouped object's values in an array and .sort sort that array by date
     return Object.values(grouped).sort(
       (a, b) => new Date(a.date) - new Date(b.date)
     );
   }, [transactions, dateRange]);
 
+  // console.log(filteredData);
+
   // Calculate totals for the selected period
+  //could have used forEach but reduce is more concise
   const totals = useMemo(() => {
     return filteredData.reduce(
       (acc, day) => ({
@@ -87,7 +90,8 @@ export function AccountChart({ transactions }) {
             <SelectValue placeholder="Select range" />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(DATE_RANGES).map(([key, { label }]) => (
+            {/* Object.entries(DATE_RANGES) :Converts the DATE_RANGES object into an array of [key, value] pairs */}
+            {Object.entries(DATE_RANGES).map(([key, { label }]) => (  //destructuring the key and label from the array
               <SelectItem key={key} value={key}>
                 {label}
               </SelectItem>
@@ -123,14 +127,14 @@ export function AccountChart({ transactions }) {
           </div>
         </div>
         <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%">  {/* for responsive design */}
             <BarChart
-              data={filteredData}
+              data={filteredData}  //filteredData is the array of objects [ { date: 'May 25', income: 0, expense: 2447.1800000000003 },...]
               margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis
-                dataKey="date"
+                dataKey="date"  //dataKey is the key in the data objects that will be used for the x-axis
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
@@ -151,7 +155,7 @@ export function AccountChart({ transactions }) {
               />
               <Legend />
               <Bar
-                dataKey="income"
+                dataKey="income"  //dataKey is the key in the data objects that will be used for the bar chart
                 name="Income"
                 fill="#22c55e"
                 radius={[4, 4, 0, 0]}
