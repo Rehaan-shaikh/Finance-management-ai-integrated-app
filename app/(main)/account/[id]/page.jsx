@@ -5,7 +5,14 @@ import { BarLoader } from 'react-spinners';
 import TransactionTable from '../_components/transaction-table';
 import { AccountChart } from '../_components/account-chart';
 
-const AccountPage = async ({ params: { id } }) => {
+
+ 
+ 
+
+
+const AccountPage = async ({ params }) => {
+     const { id } = await params
+
   const accountData = await getAccountWithTransaction(id); 
 
   if (!accountData) {
