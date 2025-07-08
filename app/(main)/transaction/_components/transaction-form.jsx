@@ -21,7 +21,7 @@ import {
 import { defaultCategories } from "@/data/categories";
 import { ReceiptScanner } from "./recipt-scanner";
 
-export default function AddTransactionForm() {
+export default   function AddTransactionForm() {
   const category = defaultCategories;
 
   const router = useRouter();
@@ -33,7 +33,7 @@ export default function AddTransactionForm() {
   const [type, setType] = useState("INCOME");
   const [selectedCategory, setSelectedCategory] = useState("");
 
-  const searchParams = useSearchParams();
+  const searchParams =  useSearchParams();
   const editId = searchParams.get("edit");
   let isScan = false;
 
