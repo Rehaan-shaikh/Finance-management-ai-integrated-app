@@ -5,11 +5,13 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import { checkUser } from "@/lib/checkUser";
+ 
+ 
 
 const Header = async () => {
-  await checkUser();  
-  //the checkUser will trigger on first render of the header component or on every render.
-
+  await checkUser(); // Ensure user is checked before rendering header
+  //if user is authenticated and not stored in db , it also handles that
+ 
 
   return (
     <header className="fixed top-0 w-full bg-white/80 backdrop-blur-md z-50 border-b">
